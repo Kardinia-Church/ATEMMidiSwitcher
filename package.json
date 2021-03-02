@@ -1,0 +1,33 @@
+{
+  "name": "atemmidiswitcher",
+  "version": "1.0.0",
+  "description": "A nodejs project to use a Behringer xTouch Mini as a switcher for a Blackmagic Switcher",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kardinia-Church/ATEMMidiSwitcher.git"
+  },
+  "keywords": [
+    "atem",
+    "midi",
+    "switcher",
+    "blackmagic",
+    "behringer",
+    "xtouch",
+    "mini"
+  ],
+  "author": "Karidnia Church",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/Kardinia-Church/ATEMMidiSwitcher/issues"
+  },
+  "homepage": "https://github.com/Kardinia-Church/ATEMMidiSwitcher#readme",
+  "dependencies": {
+    "atem-connection": "2.1.0",
+    "midi": "1.0.0",
+    "nconf": "0.11.2"
+  }
+}
