@@ -7,7 +7,7 @@ A nodejs project to use a Behringer xTouch Mini as a switcher for a BlackMagic S
 
 # Installation
 * Install [nodejs](https://nodejs.org/en/)
-* ```git clone git@github.com:Kardinia-Church/ATEMMidiSwitcher.git```
+* ```git clone http://github.com/Kardinia-Church/ATEMMidiSwitcher```
 * ```cd ATEMMidiSwitcher```
 * ```npm install```
 * Run ```node index.js``` for the first time. This will create a config file
