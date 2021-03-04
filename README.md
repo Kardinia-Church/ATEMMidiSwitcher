@@ -44,3 +44,6 @@ The following prerequisites are required for building the midi package see [the 
 This project uses the following dependencies
 * [atem-connection](https://www.npmjs.com/package/atem-connection) see [documentation](https://nrkno.github.io/tv-automation-atem-connection/) for more info
 * [midi](https://nrkno.github.io/tv-automation-atem-connection/)
+
+# Version History
+* 1.0.0 - First push (currently the knobs are not implemented)
