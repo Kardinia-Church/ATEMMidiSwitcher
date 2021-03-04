@@ -1,22 +1,24 @@
-/**
- * 
- * 
- * FIX MIDI DISCONNECTIONS
- */
-
-
 const {Atem} = require("atem-connection");
 var midi = require("midi");
-var input = new midi.Input();
-var output = new midi.Output();
-var nconf = require("nconf");
+var midiInput = {
+    "port": new midi.Input(),
+    "name": "",
+    "connection": false
+};
+var midiOutput = {
+    "port": new midi.Output(),
+    "name": "",
+    "connection": false
+};
 
+var nconf = require("nconf");
 var atemIP = undefined;
 var ME = 0;
 var inputs = [1, 2, 4, 5, 6, 7, 8];
 const atem = new Atem();
 var keyFlasher = [undefined, false];
 var faderLastDirection = false;
+var exitOnError = false;
 
 //xTouch mini buttons
 var progButtons = [89, 90, 40, 41, 42, 43, 44, 45]; //Comes in with 144 command type
@@ -28,7 +30,7 @@ var cutButton = 84;
 var autoButton = 85;
 
 //Attempt to load in the configuration
-function loadConfig() {
+function loadConfig(callback) {
     nconf.use("file", {file: "./config.json"});
     nconf.load();
 
@@ -36,6 +38,7 @@ function loadConfig() {
     if(nconf.get("atemIP") === undefined) {nconf.set("atemIP", "127.0.0.1"); error = true;}
     if(nconf.get("ME") === undefined) {nconf.set("ME", "0"); error = true;}
     if(nconf.get("inputs") === undefined) {nconf.set("inputs", "1,2,3,4,5,6,7,8"); error = true;}
+    if(nconf.get("exitOnError") === undefined || nconf.get("exitOnError") == "") {nconf.set("exitOnError", "no"); error = true;}
     if(nconf.get("midiInputDevice") === undefined || nconf.get("midiInputDevice") == "") {nconf.set("midiInputDevice", ""); error = true;}
     if(nconf.get("midiOutputDevice") === undefined || nconf.get("midiInputDevice") == "") {nconf.set("midiOutputDevice", ""); error = true;}
 
@@ -43,56 +46,58 @@ function loadConfig() {
         //Error
         console.log("There is an issue with the configuration file. Please check the configuration file config.json");
         console.log("\nMidi input devices:");
-        for(var i = 0; i < input.getPortCount(); i++) {
-            console.log(input.getPortName(i));
+        for(var i = 0; i < midiInput.port.getPortCount(); i++) {
+            console.log(midiInput.port.getPortName(i));
         }
 
         console.log("Midi output devices:");
-        for(var i = 0; i < output.getPortCount(); i++) {
-            console.log(output.getPortName(i));
+        for(var i = 0; i < midiOutput.port.getPortCount(); i++) {
+            console.log(midiOutput.port.getPortName(i));
         }
         
         nconf.save(function (error) {
             if(error){console.log("An error occurred saving the config file: " + error.message);}
+            callback(false);
         });
-
-        return false;
     }
     else {
         //Load in the settings
         atemIP = nconf.get("atemIP");
         ME = parseInt(nconf.get("ME"));
         inputs = nconf.get("inputs").split(',');
+        exitOnError = nconf.get("exitOnError").toLowerCase() == "yes";
 
         //Find the midi ios and set them
         var error = true;
-        for(var i = 0; i < input.getPortCount(); i++){if(input.getPortName(i) == nconf.get("midiInputDevice")){input.openPort(i); error = false; break;}}
-        if(error){console.log("Failed to find the midi input " + nconf.get("midiInputDevice")); return false;} error = true;
-        for(var i = 0; i < output.getPortCount(); i++){if(output.getPortName(i) == nconf.get("midiOutputDevice")){output.openPort(i); error = false; break;}}
-        if(error){console.log("Failed to find the midi output " + nconf.get("midiInputDevice")); return false;} error = true;
+        midiInput.name = nconf.get("midiInputDevice");
+        for(var i = 0; i < midiInput.port.getPortCount(); i++){if(midiInput.port.getPortName(i) == nconf.get("midiInputDevice")){midiInput.port.openPort(i); error = false; break;}}
+        if(error){console.log("Failed to find the midi input " + nconf.get("midiInputDevice")); callback(false);} error = true;
+        midiOutput.name = nconf.get("midiOutputDevice");
+        for(var i = 0; i < midiOutput.port.getPortCount(); i++){if(midiOutput.port.getPortName(i) == nconf.get("midiOutputDevice")){midiOutput.port.openPort(i); error = false; break;}}
+        if(error){console.log("Failed to find the midi output " + nconf.get("midiInputDevice")); callback(false);} error = true;
 
-        return true;
+        callback(true);
     }
 }
 
 //Set the ring around a knob to a position 0-12
 function setRingLight(knob, position) {
-    output.sendMessage([176, knobLeds[knob], position]);
+    midiOutput.port.sendMessage([176, knobLeds[knob], position]);
 }
 
 //Set a key light on or off bank="prog/prev", key=1-8, state=true/false
 function setKeyLight(bank, key, state) {
     if(bank == "prog") {
-        output.sendMessage([144, progButtons[key], state ? 127 : 0]);
+        midiOutput.port.sendMessage([144, progButtons[key], state ? 127 : 0]);
     }
     else if(bank == "prev") {
-        output.sendMessage([144, prevButtons[key], state ? 127 : 0]);
+        midiOutput.port.sendMessage([144, prevButtons[key], state ? 127 : 0]);
     }
     else if(bank == "cut") {
-        output.sendMessage([144, cutButton, state ? 127 : 0]);
+        midiOutput.port.sendMessage([144, cutButton, state ? 127 : 0]);
     }
     else if(bank == "auto") {
-        output.sendMessage([144, autoButton, state ? 127 : 0]);
+        midiOutput.port.sendMessage([144, autoButton, state ? 127 : 0]);
     }
     else {
         console.log("Invalid bank, this should be either prog or prev");
@@ -208,17 +213,59 @@ function sendFader(level) {
 }
 
 //Main loop
-var main = function() {
-    console.log("ATEM MIDI Switcher by Kardinia Church 2021");
-    console.log("Attempting to load configuration");
-    if(loadConfig() == true) {
+console.log("ATEM MIDI Switcher by Kardinia Church 2021");
+console.log("Attempting to load configuration");
+
+loadConfig(function(success) {
+    if(success == true) {
+        //Add a process to check if midi is connected
+        setInterval(function() {
+            //Input
+            var found = false;
+            var portId = 0;
+
+            //Find input
+            for(var i = 0; i < midiInput.port.getPortCount(); i++) {
+                if(midiInput.port.getPortName(i) == midiInput.name) {found = true; portId = i; break;}
+            }
+            if(found == false) {
+                console.log("Lost connection to the midi input device " + midiInput.name);
+                midiInput.connection = true;
+                midiInput.port.closePort();
+            }
+            else if(midiInput.connection == true) {
+                console.log("Regained the midi input device " + midiInput.name);
+                midiInput.port.openPort(portId);
+                midiInput.connection = false;
+            }
+
+            //Output
+            found = false;
+            portId = 0;
+            for(var i = 0; i < midiOutput.port.getPortCount(); i++) {
+                if(midiOutput.port.getPortName(i) == midiOutput.name) {found = true; portId = i; break;}
+            }
+            if(found == false) {
+                console.log("Lost connection to the midi output device " + midiOutput.name);
+                midiOutput.connection = true;
+                midiOutput.port.closePort();
+            }
+            else if(midiOutput.connection == true) {
+                console.log("Regained the midi output device " + midiOutput.name);
+                midiOutput.port.openPort(portId);
+                midiOutput.connection = false;
+                updateKeys();
+            }
+        }, 1000);
+
+
         //Everything seems good lets begin!
         flashKeys();
         console.log("Success, attempting connection to the ATEM at " + atemIP);
         connect();
 
         //Add the callbacks for MIDI
-        input.on("message", function (deltaTime, message) {
+        midiInput.port.on("message", function (deltaTime, message) {
             console.log(`m: ${message} d: ${deltaTime}`);
             //Switch the command type
             switch(message[0]) {
@@ -274,9 +321,13 @@ var main = function() {
         });
     }
     else {
-        console.error("Initialization errors occurred, will retry in 15 seconds");
-        setTimeout(function(){main();}, 15000);
+        if(exitOnError == true) {
+            console.error("Initialization errors occurred, will retry in 15 seconds");
+            setTimeout(function(){main();}, 15000);
+        }
+        else {
+            console.error("Initialization errors occurred");
+            process.exit(1);
+        }
     }
-}
-
-main();
+});
