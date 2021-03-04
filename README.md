@@ -2,8 +2,12 @@
 A nodejs project to use a Behringer xTouch Mini as a switcher for a BlackMagic Switcher
 
 # Features
-* Switching prog/prev of a ME (Coming)
-* Using the fader to fade between preview and program (Coming)
+* Switching prog/prev of a ME
+* Using the fader to fade between preview and program
+* Auto button
+* Cut button
+* Iris control using the knobs of cameras (coming soon)
+* Fade time adjustments using the last knob (coming soon)
 
 # Installation
 * Install [nodejs](https://nodejs.org/en/)
@@ -16,6 +20,14 @@ A nodejs project to use a Behringer xTouch Mini as a switcher for a BlackMagic S
 # Running
 * ```node app.js```
 
+# Starting on boot
+In order to start the plugin on boot we'll use PM2
+* Install [pm2](https://pm2.keymetrics.io/). ```sudo npm install -g pm2```
+* cd into the ATEMMidiSwitcher directory
+* ```sudo pm2 start app.js```
+* ```sudo pm2 startup systemd```
+* ```sudo pm2 save```
+
 # Prerequisites
 The following prerequisites are required for building the midi package see [the midi package](https://nrkno.github.io/tv-automation-atem-connection/) for more
 ## Windows
@@ -23,10 +35,10 @@ The following prerequisites are required for building the midi package see [the 
 * [Python](https://www.python.org/)
 
 ## Linux
-* [A C++ Compiler]()
-* [ALSA]()
-* [libasound2-dev package]()
-* [Python]()
+* A C++ Compiler
+* ALSA
+* libasound2-dev package
+* Python
 
 # Dependencies
 This project uses the following dependencies
